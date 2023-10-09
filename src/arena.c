@@ -24,8 +24,8 @@ The arena allocation needs to be thread safe and we use an atomic bitmap to allo
 
 #include <string.h>  // memset
 #include <errno.h>   // ENOMEM
-
 #include "bitmap.h"  // atomic bitmap
+#include <stdlib.h>
 
 /* -----------------------------------------------------------
   Arena allocation
@@ -173,18 +173,34 @@ static void* mi_arena_static_zalloc(size_t size, size_t alignment, mi_memid_t* m
 
 static void* mi_arena_meta_zalloc(size_t size, mi_memid_t* memid, mi_stats_t* stats) {
   *memid = _mi_memid_none();
+  void *p;
+  // // try static
+  // void* p = mi_arena_static_zalloc(size, MI_ALIGNMENT_MAX, memid);
+  // if (p != NULL) return p;
 
-  // try static
-  void* p = mi_arena_static_zalloc(size, MI_ALIGNMENT_MAX, memid);
-  if (p != NULL) return p;
+  // // or fall back to the OS
+  // return _mi_os_alloc(size, memid, stats);
+  MI_UNUSED(stats);
+  *memid = _mi_memid_none();
+  mi_stats_t* main_stats = &_mi_stats_main;
+  if (size == 0) {
+    return NULL;
+  }
 
-  // or fall back to the OS
-  return _mi_os_alloc(size, memid, stats);
+  p = malloc(size);
+  if (p != NULL) {
+    _mi_stat_increase(&main_stats->reserved, size);
+    _mi_stat_increase(&main_stats->committed, size);
+    *memid = _mi_memid_create_os(true, false, false);
+    memset(p, 0, size);
+  }
+  return p;
 }
 
 static void mi_arena_meta_free(void* p, mi_memid_t memid, size_t size, mi_stats_t* stats) {
   if (mi_memkind_is_os(memid.memkind)) {
-    _mi_os_free(p, size, memid, stats);
+    // _mi_os_free(p, size, memid, stats);
+    free(p);
   }
   else {
     mi_assert(memid.memkind == MI_MEM_STATIC);
