@@ -143,33 +143,34 @@ static bool mi_arena_memid_indices(mi_memid_t memid, size_t* arena_index, mi_bit
 
 #define MI_ARENA_STATIC_MAX  (MI_INTPTR_SIZE*MI_KiB)  // 8 KiB on 64-bit
 
-static uint8_t mi_arena_static[MI_ARENA_STATIC_MAX];
-static _Atomic(size_t) mi_arena_static_top;
+// static uint8_t mi_arena_static[MI_ARENA_STATIC_MAX];
+// static _Atomic(size_t) mi_arena_static_top;
 
-static void* mi_arena_static_zalloc(size_t size, size_t alignment, mi_memid_t* memid) {
-  *memid = _mi_memid_none();
-  if (size == 0 || size > MI_ARENA_STATIC_MAX) return NULL;
-  if ((mi_atomic_load_relaxed(&mi_arena_static_top) + size) > MI_ARENA_STATIC_MAX) return NULL;
+// static void* mi_arena_static_zalloc(size_t size, size_t alignment,
+// mi_memid_t* memid) {
+//   *memid = _mi_memid_none();
+//   if (size == 0 || size > MI_ARENA_STATIC_MAX) return NULL;
+//   if ((mi_atomic_load_relaxed(&mi_arena_static_top) + size) >
+//   MI_ARENA_STATIC_MAX) return NULL;
 
-  // try to claim space
-  if (alignment == 0) { alignment = 1; }
-  const size_t oversize = size + alignment - 1;
-  if (oversize > MI_ARENA_STATIC_MAX) return NULL;
-  const size_t oldtop = mi_atomic_add_acq_rel(&mi_arena_static_top, oversize);
-  size_t top = oldtop + oversize;
-  if (top > MI_ARENA_STATIC_MAX) {
-    // try to roll back, ok if this fails
-    mi_atomic_cas_strong_acq_rel(&mi_arena_static_top, &top, oldtop);
-    return NULL;
-  }
+//   // try to claim space
+//   if (alignment == 0) { alignment = 1; }
+//   const size_t oversize = size + alignment - 1;
+//   if (oversize > MI_ARENA_STATIC_MAX) return NULL;
+//   const size_t oldtop = mi_atomic_add_acq_rel(&mi_arena_static_top,
+//   oversize); size_t top = oldtop + oversize; if (top > MI_ARENA_STATIC_MAX) {
+//     // try to roll back, ok if this fails
+//     mi_atomic_cas_strong_acq_rel(&mi_arena_static_top, &top, oldtop);
+//     return NULL;
+//   }
 
-  // success
-  *memid = _mi_memid_create(MI_MEM_STATIC);
-  const size_t start = _mi_align_up(oldtop, alignment);
-  uint8_t* const p = &mi_arena_static[start];
-  _mi_memzero(p, size);
-  return p;
-}
+//   // success
+//   *memid = _mi_memid_create(MI_MEM_STATIC);
+//   const size_t start = _mi_align_up(oldtop, alignment);
+//   uint8_t* const p = &mi_arena_static[start];
+//   _mi_memzero(p, size);
+//   return p;
+// }
 
 static void* mi_arena_meta_zalloc(size_t size, mi_memid_t* memid, mi_stats_t* stats) {
   *memid = _mi_memid_none();
@@ -197,14 +198,12 @@ static void* mi_arena_meta_zalloc(size_t size, mi_memid_t* memid, mi_stats_t* st
   return p;
 }
 
-static void mi_arena_meta_free(void* p, mi_memid_t memid, size_t size, mi_stats_t* stats) {
-  if (mi_memkind_is_os(memid.memkind)) {
-    // _mi_os_free(p, size, memid, stats);
-    free(p);
-  }
-  else {
-    mi_assert(memid.memkind == MI_MEM_STATIC);
-  }
+static void mi_arena_meta_free(void* p, mi_memid_t memid, size_t /* size */, mi_stats_t* /* stats */) {
+    if (mi_memkind_is_os(memid.memkind)) {
+        free(p);
+    } else {
+        mi_assert(memid.memkind == MI_MEM_STATIC);
+    }
 }
 
 static void* mi_arena_block_start(mi_arena_t* arena, mi_bitmap_index_t bindex) {
