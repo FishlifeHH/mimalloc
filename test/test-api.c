@@ -27,6 +27,7 @@ we therefore test the API over various inputs. Please add more tests :-)
 #include <stdbool.h>
 #include <stdint.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
 #include <vector>
@@ -57,9 +58,13 @@ bool mem_is_zero(uint8_t* p, size_t size) {
 // ---------------------------------------------------------------------------
 // Main testing
 // ---------------------------------------------------------------------------
+static const size_t GB = 1 << 30;
+static const size_t size = 3 * GB;
 int main(void) {
   mi_option_disable(mi_option_verbose);
-  
+  // mi_option_disable(mi_option_arena_reserve);
+  void *buffer = aligned_alloc(32 * 1024 * 1024, size);
+  mi_manage_os_memory(buffer, size, false, false, false, -1);
   // ---------------------------------------------------
   // Malloc
   // ---------------------------------------------------
@@ -307,6 +312,8 @@ int main(void) {
   // ---------------------------------------------------
   // Done
   // ---------------------------------------------------[]
+  mi_collect(true);
+  free(buffer);
   return print_test_summary();
 }
 
