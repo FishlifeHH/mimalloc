@@ -232,19 +232,10 @@ static mi_thread_data_t* mi_thread_data_zalloc(void) {
 
   // if that fails, allocate as meta data
   if (td == NULL) {
-    mi_memid_t memid;
-    td = (mi_thread_data_t*)_mi_os_alloc(sizeof(mi_thread_data_t), &memid, &_mi_stats_main);
+    td = malloc(sizeof(mi_thread_data_t));
     if (td == NULL) {
-      // if this fails, try once more. (issue #257)
-      td = (mi_thread_data_t*)_mi_os_alloc(sizeof(mi_thread_data_t), &memid, &_mi_stats_main);
-      if (td == NULL) {
-        // really out of memory
-        _mi_error_message(ENOMEM, "unable to allocate thread local heap metadata (%zu bytes)\n", sizeof(mi_thread_data_t));
-      }
-    }
-    if (td != NULL) {
-      td->memid = memid;
-      is_zero = memid.initially_zero;
+      // really out of memory
+      _mi_error_message(ENOMEM, "unable to allocate thread local heap metadata (%zu bytes)\n", sizeof(mi_thread_data_t));
     }
   }
   
@@ -266,7 +257,7 @@ static void mi_thread_data_free( mi_thread_data_t* tdfree ) {
     }
   }
   // if that fails, just free it directly
-  _mi_os_free(tdfree, sizeof(mi_thread_data_t), tdfree->memid, &_mi_stats_main);
+  free(tdfree);
 }
 
 void _mi_thread_data_collect(void) {
